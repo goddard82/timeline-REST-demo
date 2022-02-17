@@ -1,0 +1,34 @@
+[service]
+cluster = 'dev-private'
+service_name = 'timeline-api-go'
+use_codedeploy = false
+use_consul = true
+
+cpu = 1024
+memory = 1024
+
+task_role = '{REMOVED}'
+
+health_check_path = '/health'
+port_forwards = [
+    4747,
+]
+
+regions = [
+    'eu-west-1',
+]
+
+env_vars = []
+secrets = [
+    'DB_CREDS:/dev/timeline-api/dbcreds',
+]
+
+load_balancers = [
+    'admin-private',
+]
+
+[service.routing]
+field = 'host-header'
+values = [
+    'timeline.dev.demo.co'
+]

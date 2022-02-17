@@ -1,0 +1,35 @@
+version: "3"
+services:
+  db:
+    image: "postgres:10.12-alpine"
+    volumes:
+      - "dbdata:/var/lib/postgresql/data"
+    environment:
+      - POSTGRES_USER={removed}
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB={removed}
+    ports:
+      - "5432:5432"
+    networks:
+      - db_nw
+  flaskapp:
+    build:
+      context: .
+      dockerfile: ci/dev/Dockerfile
+    environment:
+      DB_CREDS: '{"hostname":"db","database":"{removed}","username":"{removed}","password":"password"}'
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    networks:
+      - db_nw
+    depends_on:
+      - db
+networks:
+  db_nw:
+    driver: bridge
+  web_nw:
+    driver: bridge
+volumes:
+  dbdata:
