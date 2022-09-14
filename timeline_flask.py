@@ -64,6 +64,7 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 
+#Endpoint to retrieve all events
 @app.route('/timeline/events', methods=['GET'])
 @auth.login_required
 def get_all_events():
@@ -96,6 +97,7 @@ def get_all_events():
         return jsonify({'events': output}), 200
 
 
+#Endpoint to retrieve all events that apply to the last 30 minutes (events that had a duration in that period will be included)
 @app.route('/timeline/events/recent', methods=['GET'])
 @auth.login_required
 def get_recent_events():
@@ -122,38 +124,10 @@ def get_recent_events():
             return jsonify({}), 204
 
 
+#Endpoint to retrieve all events occuring within a daterange.
 @app.route('/timeline/events/daterange', methods=['GET'])
 @auth.login_required
 def get_daterange():
-    """Finds events where the timestamp/START is in the range specified."""
-    global recents
-    start = request.args.get('start')
-    end = request.args.get('end')
-    sql = "SELECT * from timeline WHERE timestamp BETWEEN %s AND %s ORDER BY timestamp desc;"
-    params = [start, end]
-    print(params)
-    try:
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(sql, params)
-        recents = cur.fetchall()
-        print(cur.mogrify(sql, params))
-    except (Exception, psycopg2.DatabaseError, psycopg2.OperationalError, psycopg2.ProgrammingError,
-            psycopg2.InterfaceError, psycopg2.DataError, psycopg2.InternalError) as error:
-        print(error)
-        conn.rollback()
-    finally:
-        if conn:
-            cur.close()
-        if len(recents) >= 1:
-            return jsonify({'events': recents}), 200
-        else:
-            return jsonify({}), 204
-
-
-@app.route('/timeline/events/daterange/advanced', methods=['GET'])
-@auth.login_required
-def get_daterange_advanced():
     global recents
     start = request.args.get('start') + str(' 00:00:00.000')
     end = request.args.get('end') + str(' 23:59:59.999')
@@ -180,13 +154,9 @@ def get_daterange_advanced():
             return jsonify({}), 204
 
 
+#Endpoint to retrieve all events with specified query terms
 @app.route('/timeline/events/query', methods=['GET'])
 @auth.login_required
-"""https://timeline.avkn.co/timeline/events/query?payload={
-        "affectedServices": null,
-        "message": "Users may have experienced intermittent issues with this service.",
-        "usersAffected": "Some users were affected"
-      }"""
 def get_query():
     global recents
     long_dict = request.args
@@ -239,6 +209,7 @@ def get_query():
             return jsonify({}), 204
 
 
+#Endpoint to retrieve the last X events
 @app.route('/timeline/events/', methods=['GET'])
 @auth.login_required
 def get_query_last_x():
@@ -263,6 +234,7 @@ def get_query_last_x():
             return jsonify({}), 204
 
 
+#Endpoint to retrieve a single event by UUID
 @app.route('/timeline/events/<uuid:instance_id>', methods=['GET'])
 @auth.login_required
 def get_event(instance_id):
@@ -290,6 +262,7 @@ def get_event(instance_id):
             return jsonify({}), 204
 
 
+#Endpoint to create an event
 @app.route('/timeline/events', methods=['POST'])
 @auth.login_required
 @schema.validate(event_schema)
@@ -342,52 +315,7 @@ def create_event():
         return jsonify({'events': event}), 201
 
 
-@app.route('/timeline/events/airtable', methods=['POST'])
-@auth.login_required
-@schema.validate(event_schema)
-def convert_airtable_event():
-    """Creates an event but uses the existing timestamp as opposed to creating a new one. Used when scraping data from
-    the temp airtable timeline"""
-    instance_id = str(uuid.uuid4()),
-    subsystem = request.json.get('subsystem').lower()
-    event_type = request.json.get('type').lower()
-    timestamp = request.json.get('timestamp')
-    status = request.json.get('status').lower()
-    description = request.json.get('description')
-    payload = request.json.get('payload')
-    endtime = request.json.get('endtime')
-    sql = """INSERT INTO timeline (instance_id, description, subsystem, type, status, timestamp, payload, endtime)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-            """
-    # suppressed = request.json.get('suppressed')
-    try:
-        conn = get_db()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute(sql, (instance_id, description, subsystem, event_type, status, timestamp, Json(payload), endtime))
-        print(cur.mogrify(sql, (instance_id, description, subsystem, event_type, status, timestamp, Json(payload), endtime)))
-        if not request.json:
-            exit(400)
-    except (Exception, psycopg2.DatabaseError, psycopg2.OperationalError, psycopg2.ProgrammingError,
-            psycopg2.InterfaceError, psycopg2.DataError, psycopg2.InternalError) as error:
-        print(error)
-        conn.rollback()
-    finally:
-        if conn:
-            cur.close()
-        event = {
-            'instance_id': instance_id,
-            'subsystem': subsystem,
-            'type': event_type,
-            'timestamp': timestamp,
-            'status': status,
-            'description': description,
-            'payload': payload,
-            'endtime': endtime
-            # 'suppressed': request.json.get('suppressed')
-        }
-        return jsonify({'events': event}), 201
-
-
+#Endpoint to update a specific event
 @app.route('/timeline/events/<uuid:instance_id>', methods=['PUT'])
 @auth.login_required
 def update_event(instance_id):
@@ -414,6 +342,7 @@ def update_event(instance_id):
         return get_event(instance_id)
 
 
+#Endpoint to delete a specific event
 @app.route('/timeline/events/<uuid:instance_id>', methods=['DELETE'])
 @auth.login_required
 def delete_event(instance_id):
@@ -442,6 +371,7 @@ def delete_event(instance_id):
         return jsonify({'deleted': event}), 200
 
 
+#Endpoint for monitoring health of service. Required for ECS deployment
 @app.route('/timeline/health', methods=['GET'])
 def health():
     return {'message': 'Healthy'}, 200
